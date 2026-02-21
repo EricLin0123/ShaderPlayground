@@ -1,41 +1,47 @@
-float hash(vec2 p) {
-  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-}
-
-vec2 random2(vec2 p) {
-  return vec2(hash(p), hash(p + 19.19));
-}
+// Author: @patriciogv
+// Title: 4 cells voronoi
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
-  vec2 uv = fragCoord / u_resolution;
-  vec2 st = uv * 8.0;
+  vec2 st = fragCoord / u_resolution;
+  st.x *= u_resolution.x / u_resolution.y;
 
-  vec2 i = floor(st);
-  vec2 f = fract(st);
+  vec3 color = vec3(0.0);
 
-  float minDist = 10.0;
+  // Cell positions
+  vec2 point[5];
+  point[0] = vec2(0.83, 0.75);
+  point[1] = vec2(0.60, 0.07);
+  point[2] = vec2(0.28, 0.64);
+  point[3] = vec2(0.31, 0.26);
+  point[4] = u_mouse / u_resolution;
+  point[4].x *= u_resolution.x / u_resolution.y;
 
-  for (int y = -1; y <= 1; y++) {
-    for (int x = -1; x <= 1; x++) {
-      vec2 neighbor = vec2(float(x), float(y));
-      vec2 point = random2(i + neighbor);
+  float m_dist = 1.0; // minimum distance
+  vec2 m_point = vec2(0.0); // minimum position
 
-      vec2 mouseUv = u_mouse / u_resolution;
-      point = 0.5 + 0.45 * sin(u_time + 6.2831 * point);
-      point = mix(point, mouseUv, 0.25);
+  // Iterate through the points positions
+  for (int i = 0; i < 5; i++) {
+    float dist = distance(st, point[i]);
+    if (dist < m_dist) {
+      // Keep the closer distance
+      m_dist = dist;
 
-      vec2 diff = neighbor + point - f;
-      float dist = length(diff);
-      minDist = min(minDist, dist);
+      // Keep the position of the closer point
+      m_point = point[i];
     }
   }
 
-  float cells = smoothstep(0.0, 0.65, minDist);
-  float edges = smoothstep(0.08, 0.1, minDist);
+  // Add distance field to closest point center
+  color += m_dist * 2.0;
 
-  vec3 cellColor = mix(vec3(0.1, 0.15, 0.28), vec3(0.7, 0.86, 1.0), cells);
-  vec3 edgeColor = vec3(0.98, 0.99, 1.0);
-  vec3 color = mix(edgeColor, cellColor, edges);
+  // Tint according the closest point position
+  color.rg = m_point;
+
+  // Show isolines
+  color -= abs(sin(80.0 * m_dist)) * 0.07;
+
+  // Draw point center
+  color += 1.0 - step(0.02, m_dist);
 
   fragColor = vec4(color, 1.0);
 }

@@ -56,8 +56,8 @@ export class Renderer {
 
     window.addEventListener('pointermove', (event) => {
       const rect = this.canvas.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = rect.height - (event.clientY - rect.top);
+      const x = (event.clientX - rect.left) * (this.canvas.width / rect.width);
+      const y = (rect.bottom - event.clientY) * (this.canvas.height / rect.height);
       this.mouse.x = x;
       this.mouse.y = y;
     });
