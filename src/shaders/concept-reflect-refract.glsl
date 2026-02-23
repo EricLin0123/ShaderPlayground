@@ -56,11 +56,12 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   vec2 uv = (fragCoord - 0.5 * u_resolution) / u_resolution.y;
 
   float spin = u_rr_spin * (u_rr_animate > 0.5 ? u_time : 1.0);
-  vec3 ro = vec3(0.0, 0.0, 3.0);
-  ro.xz *= rot(spin * 0.5);
-
-  vec3 rd = normalize(vec3(uv, -1.85));
-  rd.xz *= rot(spin);
+  vec3 target = vec3(0.0);
+  vec3 ro = vec3(sin(spin) * 3.0, 0.0, cos(spin) * 3.0);
+  vec3 forward = normalize(target - ro);
+  vec3 right = normalize(cross(forward, vec3(0.0, 1.0, 0.0)));
+  vec3 up = normalize(cross(right, forward));
+  vec3 rd = normalize(forward + uv.x * right + uv.y * up);
 
   vec3 color = env(rd);
 
