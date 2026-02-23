@@ -12,16 +12,24 @@ uniform vec2 u_resolution;
 uniform float u_time;
 uniform vec2 u_mouse;
 uniform sampler2D u_texture;
+uniform sampler2D u_prev_state;
+uniform float u_frame;
+uniform float u_pass;
 out vec4 outColor;
 `;
 
 const FRAGMENT_SUFFIX = `
+void mainSim(out vec4 fragColor, in vec2 fragCoord);
 void mainImage(out vec4 fragColor, in vec2 fragCoord);
 void main() {
-  mainImage(outColor, gl_FragCoord.xy);
+  if (u_pass < 0.5) {
+    mainSim(outColor, gl_FragCoord.xy);
+  } else {
+    mainImage(outColor, gl_FragCoord.xy);
+  }
 }`;
 
-export class ShaderProgram {
+export class SimulationShaderProgram {
   constructor(gl, userFragmentShader) {
     this.gl = gl;
     const vertexShader = this.#compile(gl.VERTEX_SHADER, FULLSCREEN_TRIANGLE_VERTEX);
@@ -47,7 +55,10 @@ export class ShaderProgram {
       resolution: gl.getUniformLocation(this.program, COMMON_UNIFORMS.resolution),
       time: gl.getUniformLocation(this.program, COMMON_UNIFORMS.time),
       mouse: gl.getUniformLocation(this.program, COMMON_UNIFORMS.mouse),
-      texture: gl.getUniformLocation(this.program, 'u_texture')
+      texture: gl.getUniformLocation(this.program, 'u_texture'),
+      prevState: gl.getUniformLocation(this.program, 'u_prev_state'),
+      frame: gl.getUniformLocation(this.program, 'u_frame'),
+      pass: gl.getUniformLocation(this.program, 'u_pass')
     };
   }
 

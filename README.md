@@ -24,28 +24,49 @@ ShaderPlayground/
 │  │  └─ uniforms.js           # Shared uniform names
 │  └─ shaders/
 │     ├─ gradient.glsl         # Default shader
-│     ├─ voronoi.glsl          # Voronoi effect (mouse-reactive)
-│     └─ metaballs.glsl        # Animated metaballs
-└─ public/                     # Static assets (if needed)
+│     ├─ concept-lights.glsl
+│     ├─ concept-normal-maps.glsl
+│     ├─ concept-bump-maps.glsl
+│     ├─ concept-ray-marching.glsl
+│     ├─ concept-env-spherical.glsl
+│     ├─ concept-env-cube.glsl
+│     ├─ concept-reflect-refract.glsl
+│     ├─ concept-fresnel-shadows-ao.glsl
+│     ├─ image-processing.glsl
+│     ├─ voronoi.glsl
+│     ├─ metaballs.glsl
+│     ├─ terrain.glsl
+│     ├─ clouds.glsl
+│     ├─ marble.glsl
+│     ├─ water.glsl
+│     ├─ planet.glsl
+│     └─ fire.glsl
+├─ docs/
+│  ├─ image-processing.md
+│  └─ rendering-concepts.md    # Per-concept rendering guide
+└─ public/
 ```
 
-## How It Works
+## Concept Learning Pack
 
-- `src/main.js` reads `?shader=<name>` from the URL.
-- It dynamically imports the matching shader from `src/shaders`.
-- `Renderer` creates a WebGL2 canvas and draws each frame.
-- `ShaderProgram` wraps your fragment source with a shared header/footer and expects:
-  - `void mainImage(out vec4 fragColor, in vec2 fragCoord);`
-- Common uniforms available in every shader:
-  - `u_resolution` (`vec2`) canvas pixel size
-  - `u_time` (`float`) seconds since start
-  - `u_mouse` (`vec2`) pointer position in pixels
+Use these dedicated shaders (one concept per shader):
+
+- `/?shader=concept-lights`
+- `/?shader=concept-normal-maps`
+- `/?shader=concept-bump-maps`
+- `/?shader=concept-ray-marching`
+- `/?shader=concept-env-spherical`
+- `/?shader=concept-env-cube`
+- `/?shader=concept-reflect-refract`
+- `/?shader=concept-fresnel-shadows-ao`
+
+Detailed notes: `docs/rendering-concepts.md`.
 
 ## Run Locally
 
 ### Prerequisites
 
-- Node.js 18+ (or Bun if you prefer Bun workflows)
+- Node.js 18+ (or Bun)
 
 ### Install
 
@@ -60,16 +81,6 @@ npm run dev
 ```
 
 Then open the local URL shown by Vite (typically `http://localhost:5173`).
-
-## Choose a Shader
-
-Use the `shader` query param:
-
-- `http://localhost:5173/?shader=gradient`
-- `http://localhost:5173/?shader=voronoi`
-- `http://localhost:5173/?shader=metaballs`
-
-If the param is missing or invalid, it falls back to `gradient`.
 
 ## Production Build
 
@@ -86,5 +97,5 @@ npm run preview
 ## Add a New Shader
 
 1. Create `src/shaders/<name>.glsl` implementing `mainImage(...)`.
-2. Register it in `SHADER_LOADERS` inside `src/main.js`.
+2. Add slider/toggle schema in `src/main.js` if custom uniforms are used.
 3. Run `npm run dev` and open `/?shader=<name>`.

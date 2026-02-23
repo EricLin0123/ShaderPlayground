@@ -12,6 +12,191 @@
         height: 100%;
         overflow: hidden;
         background: #0a0a0a;
+        font-family: "SF Mono", "Menlo", "Monaco", "Consolas", monospace;
+      }
+
+      .shader-menu {
+        position: fixed;
+        top: 16px;
+        left: 16px;
+        z-index: 10;
+        width: min(320px, calc(100vw - 32px));
+        max-height: calc(100vh - 32px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 14px;
+        border: 1px solid rgba(191, 212, 255, 0.35);
+        border-radius: 12px;
+        background: rgba(8, 13, 24, 0.74);
+        backdrop-filter: blur(8px);
+        color: #e9f0ff;
+      }
+
+      .shader-menu__title {
+        margin: 0;
+        font-size: 0.92rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .shader-menu__subtitle {
+        margin: 6px 0 10px;
+        font-size: 0.76rem;
+        color: rgba(233, 240, 255, 0.78);
+      }
+
+      .shader-menu__resolution {
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+
+      .shader-menu__number,
+      .shader-menu__apply {
+        border: 1px solid rgba(191, 212, 255, 0.3);
+        border-radius: 8px;
+        background: rgba(17, 30, 58, 0.7);
+        color: #e9f0ff;
+        font: inherit;
+        font-size: 0.78rem;
+        padding: 7px 8px;
+      }
+
+      .shader-menu__number:focus,
+      .shader-menu__apply:focus {
+        outline: 1px solid rgba(197, 216, 255, 0.75);
+        outline-offset: 1px;
+      }
+
+      .shader-menu__apply {
+        cursor: pointer;
+      }
+
+      .shader-menu__hint {
+        margin: 0 0 10px;
+        font-size: 0.7rem;
+        color: rgba(233, 240, 255, 0.68);
+      }
+
+      .shader-menu__controls {
+        margin: 0 0 12px;
+        padding: 10px;
+        border: 1px solid rgba(191, 212, 255, 0.2);
+        border-radius: 8px;
+        background: rgba(11, 19, 35, 0.7);
+      }
+
+      .shader-menu__controls-title {
+        margin: 0 0 8px;
+        font-size: 0.72rem;
+        color: rgba(233, 240, 255, 0.84);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .shader-menu__slider {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 4px 8px;
+        margin-bottom: 8px;
+      }
+
+      .shader-menu__slider-label {
+        font-size: 0.72rem;
+      }
+
+      .shader-menu__slider-value {
+        font-size: 0.7rem;
+        color: rgba(233, 240, 255, 0.72);
+      }
+
+      .shader-menu__slider-input {
+        grid-column: 1 / span 2;
+        width: 100%;
+      }
+
+      .shader-menu__toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+
+      .shader-menu__toggle-label {
+        font-size: 0.72rem;
+      }
+
+      .shader-menu__toggle-input {
+        width: 16px;
+        height: 16px;
+      }
+
+      .shader-menu__reset {
+        width: 100%;
+        margin-top: 2px;
+      }
+
+      .shader-menu__list {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .shader-menu__item {
+        display: block;
+        padding: 8px 10px;
+        border: 1px solid rgba(191, 212, 255, 0.18);
+        border-radius: 8px;
+        color: #e9f0ff;
+        text-decoration: none;
+        font-size: 0.83rem;
+        line-height: 1.3;
+        transition: background 120ms ease, border-color 120ms ease;
+      }
+
+      .shader-menu__item:hover {
+        background: rgba(118, 174, 255, 0.16);
+        border-color: rgba(191, 212, 255, 0.45);
+      }
+
+      .shader-menu__item.is-active {
+        background: rgba(111, 169, 255, 0.24);
+        border-color: rgba(195, 216, 255, 0.66);
+      }
+
+      canvas {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 0;
+        display: block;
+      }
+
+      @media (max-width: 700px) {
+        .shader-menu {
+          top: 10px;
+          left: 10px;
+          width: min(300px, calc(100vw - 20px));
+          max-height: calc(100vh - 20px);
+          padding: 10px;
+        }
+
+        .shader-menu__resolution {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .shader-menu__apply {
+          grid-column: 1 / span 2;
+        }
+
+        .shader-menu__item {
+          font-size: 0.78rem;
+          padding: 7px 9px;
+        }
       }
     </style>
   </head>

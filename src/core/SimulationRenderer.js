@@ -1,4 +1,4 @@
-export class Renderer {
+export class SimulationRenderer {
   constructor(fragmentShaderSource, ShaderProgramClass, options = {}) {
     this.canvas = document.createElement('canvas');
     this.gl = this.canvas.getContext('webgl2');
@@ -9,6 +9,8 @@ export class Renderer {
 
     this.mouse = { x: 0, y: 0 };
     this.startTime = performance.now();
+    this.frame = 0;
+    this.pingPong = { read: 0, write: 1 };
     this.customUniforms = {};
 
     this.renderWidth = this.#normalizeSize(options.renderWidth, 500);
@@ -19,11 +21,14 @@ export class Renderer {
     this.program = new ShaderProgramClass(this.gl, fragmentShaderSource);
     this.program.use();
     this.texture = this.#createDemoTexture();
-    this.program.setTextureUnit('texture', 0);
 
     this.#createFullscreenTriangle();
+    this.#createPingPongTargets();
     this.#bindEvents();
     this.setRenderSize(this.renderWidth, this.renderHeight);
+
+    this.program.setTextureUnit('texture', 0);
+    this.program.setTextureUnit('prevState', 1);
   }
 
   start() {
@@ -51,12 +56,19 @@ export class Renderer {
     this.canvas.style.width = `${nextWidth}px`;
     this.canvas.style.height = `${nextHeight}px`;
 
+    this.#resizePingPongTargets(nextWidth, nextHeight);
+    this.frame = 0;
     this.gl.viewport(0, 0, nextWidth, nextHeight);
     return { width: this.renderWidth, height: this.renderHeight };
   }
 
   setCustomUniforms(nextUniforms) {
     this.customUniforms = { ...nextUniforms };
+  }
+
+  resetSimulation() {
+    this.#resizePingPongTargets(this.canvas.width, this.canvas.height);
+    this.frame = 0;
   }
 
   #normalizeSize(value, fallback) {
@@ -89,6 +101,54 @@ export class Renderer {
 
     gl.bindVertexArray(null);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  }
+
+  #createPingPongTargets() {
+    this.stateTextures = [this.#createStateTexture(), this.#createStateTexture()];
+    this.framebuffers = [this.#createFramebuffer(this.stateTextures[0]), this.#createFramebuffer(this.stateTextures[1])];
+    this.pingPong = { read: 0, write: 1 };
+  }
+
+  #resizePingPongTargets(width, height) {
+    const gl = this.gl;
+    for (let i = 0; i < 2; i += 1) {
+      gl.bindTexture(gl.TEXTURE_2D, this.stateTextures[i]);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[i]);
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    this.pingPong = { read: 0, write: 1 };
+  }
+
+  #createStateTexture() {
+    const gl = this.gl;
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.renderWidth, this.renderHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    return texture;
+  }
+
+  #createFramebuffer(texture) {
+    const gl = this.gl;
+    const framebuffer = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+      throw new Error('Simulation framebuffer is incomplete.');
+    }
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return framebuffer;
   }
 
   #bindEvents() {
@@ -133,6 +193,7 @@ export class Renderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindTexture(gl.TEXTURE_2D, null);
 
     return texture;
   }
@@ -140,19 +201,43 @@ export class Renderer {
   #draw() {
     const gl = this.gl;
     const now = performance.now();
+    const time = (now - this.startTime) * 0.001;
 
     this.program.use();
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.texture);
     this.program.setUniform('resolution', this.canvas.width, this.canvas.height);
-    this.program.setUniform('time', (now - this.startTime) * 0.001);
+    this.program.setUniform('time', time);
     this.program.setUniform('mouse', this.mouse.x, this.mouse.y);
+    this.program.setUniform('frame', this.frame);
     for (const [name, value] of Object.entries(this.customUniforms)) {
       this.program.setUniform(name, value);
     }
 
     gl.bindVertexArray(this.vao);
+
+    // Simulation pass: prev state -> next state framebuffer.
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.texture);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.stateTextures[this.pingPong.read]);
+
+    this.program.setUniform('pass', 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[this.pingPong.write]);
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    // Display pass: latest state -> screen.
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.stateTextures[this.pingPong.write]);
+    this.program.setUniform('pass', 1);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
+
+    const nextRead = this.pingPong.write;
+    const nextWrite = this.pingPong.read;
+    this.pingPong.read = nextRead;
+    this.pingPong.write = nextWrite;
+    this.frame += 1;
   }
 }
