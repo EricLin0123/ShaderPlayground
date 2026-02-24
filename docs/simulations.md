@@ -71,6 +71,7 @@ The shader supports mouse seeding (paint alive cells).
 Shader:
 
 - `src/shaders/sim-ripples.glsl`
+- Detailed doc: `docs/sim-ripples.md`
 
 State:
 
