@@ -198,14 +198,70 @@ float cloudCoverage(vec3 p) {
   return smoothstep(0.56, 0.80, coverage);
 }
 
-vec3 starfield(vec2 uv, vec3 bg) {
-  vec2 cell = floor((uv + 2.0) * 340.0);
-  float star = step(0.9988, hash11(cell.x * 17.0 + cell.y * 131.0));
-  float twinkle = 0.65 + 0.35 * sin(u_time * 2.5 + hash11(cell.x + cell.y * 3.0) * 6.2831);
+vec3 starLayer(vec2 uv, float scale, float density, float sizeScale, float seed) {
+  vec2 p = uv * scale;
+  vec2 id = floor(p);
+  vec2 f = fract(p) - 0.5;
 
-  vec3 stars = vec3(star * twinkle);
-  vec3 nebula = vec3(0.05, 0.08, 0.16) * pow(fbm(vec3(uv * 1.5, u_time * 0.01)), 2.0);
-  return bg + stars + nebula;
+  float h0 = hash11(id.x * 127.1 + id.y * 311.7 + seed);
+  if (h0 < 1.0 - density) {
+    return vec3(0.0);
+  }
+
+  vec2 offs = vec2(
+    hash11(id.x * 269.5 + id.y * 183.3 + 11.0 + seed) - 0.5,
+    hash11(id.x * 419.2 + id.y * 371.9 + 17.0 + seed) - 0.5
+  ) * 0.78;
+
+  vec2 d = f - offs;
+  float r2 = dot(d, d);
+  float size = mix(0.010, 0.060, hash11(id.x * 73.1 + id.y * 191.7 + 29.0 + seed)) * sizeScale;
+  float core = exp(-r2 / (size * size));
+  float halo = exp(-r2 / (size * size * 8.0));
+
+  float twinkleRate = mix(0.7, 2.4, hash11(id.x * 59.0 + id.y * 43.0 + 37.0 + seed));
+  float twinklePhase = hash11(id.x * 167.0 + id.y * 241.0 + 41.0 + seed) * 6.2831;
+  float twinkle = 0.72 + 0.28 * sin(u_time * twinkleRate + twinklePhase);
+
+  vec3 warm = vec3(1.0, 0.82, 0.63);
+  vec3 cold = vec3(0.68, 0.80, 1.0);
+  vec3 starCol = mix(warm, cold, hash11(id.x * 151.3 + id.y * 91.7 + 53.0 + seed));
+
+  return starCol * (core * 2.2 + halo * 0.55) * twinkle;
+}
+
+vec3 deepSpaceBackground(vec3 rd) {
+  vec2 uv = rd.xy / max(abs(rd.z), 0.22);
+
+  float c = cos(-0.35);
+  float s = sin(-0.35);
+  mat2 rot = mat2(c, -s, s, c);
+  vec2 milkyUv = rot * uv;
+
+  vec3 bg = vec3(0.0012, 0.0018, 0.0045);
+
+  float dustA = fbm(vec3(uv * 0.95, 2.1));
+  float dustB = fbm(vec3(uv * 1.80 + vec2(9.0, -6.0), -3.4));
+  float dust = pow(clamp(dustA * 0.70 + dustB * 0.45 - 0.46, 0.0, 1.0), 1.65);
+  vec3 nebulaA = vec3(0.18, 0.09, 0.27);
+  vec3 nebulaB = vec3(0.05, 0.19, 0.28);
+  vec3 nebula = mix(nebulaA, nebulaB, fbm(vec3(uv * 1.3, 7.0)));
+  bg += nebula * dust * 0.32;
+
+  float band = exp(-abs(milkyUv.y) * 3.3);
+  float clumps = pow(fbm(vec3(milkyUv * 2.4 + vec2(4.0, 1.0), 5.3)), 2.1);
+  float lanes = 1.0 - smoothstep(0.18, 0.62, fbm(vec3(milkyUv * 4.5, -1.7)));
+  vec3 milky = vec3(0.34, 0.32, 0.28) * band * (0.22 + clumps * 1.25) * mix(0.55, 1.0, lanes);
+  bg += milky * 0.40;
+
+  vec3 stars = vec3(0.0);
+  stars += starLayer(uv, 220.0, 0.010, 1.0, 13.0);
+  stars += starLayer(uv * 1.3 + vec2(0.17, -0.08), 430.0, 0.006, 0.75, 31.0);
+  stars += starLayer(uv * 0.7 + vec2(-0.11, 0.09), 90.0, 0.020, 1.35, 59.0);
+
+  bg += stars * (0.65 + band * 0.35);
+
+  return max(bg, vec3(0.0));
 }
 
 vec3 atmosphereScatter(vec3 ro, vec3 rd, vec3 lightDir, float tMax, float planetRadius, float atmRadius) {
@@ -249,8 +305,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   vec3 lightDir = normalize(vec3(-0.72, 0.36, 0.58));
   float spin = u_time * 0.13;
 
-  vec3 bg = mix(vec3(0.005, 0.01, 0.03), vec3(0.015, 0.03, 0.08), smoothstep(-0.4, 1.1, uv.y));
-  bg = starfield(uv, bg);
+  vec3 bg = deepSpaceBackground(rd);
 
   float planetRadius = 1.0;
   float cloudRadius = 1.018;

@@ -9,7 +9,7 @@ This planet shader is built to be article-friendly: each visual feature is tied 
 The shader ray-traces an analytic sphere rather than masking a 2D circle.
 
 Core pieces:
-- Camera origin: `ro = vec3(0.0, 0.0, 2.7)`
+- Camera origin: `ro = vec3(0.0, 0.0, 4.2)`
 - View ray: `rd = normalize(vec3(uv, -1.8))`
 - Sphere hit function: `sphereIntersect(ro, rd, radius)`
 
@@ -99,14 +99,17 @@ Benefits:
 
 Function:
 - `cloudCoverage(vec3 p)`
+- `randomCloudDrift(float t)`
 
 Construction:
-- Animated cloud field from FBM + ridged noise.
-- Wind advection via time offset in noise domain.
+- Clouds live on a separate shell (`cloudRadius = 1.018`) above the ground sphere (`planetRadius = 1.0`).
+- Coverage is generated from FBM with domain warping (all cloud density comes from FBM).
+- Motion uses `randomCloudDrift`: a smooth interpolation between random direction cells, which creates wandering flow instead of fixed linear panning.
 
 Coupling to surface shading:
 - `cloudShadow` attenuates surface light on lit side.
-- Cloud albedo is blended on top with lighting-dependent brightness.
+- Cloud sphere is intersected separately (`sphereIntersect` on cloud shell) and composited in front of the surface when visible.
+- Cloud brightness is lighting-dependent via cloud normal vs sun direction.
 
 Article angle:
 - Clouds should affect the surface, not just be painted white on top.
@@ -144,11 +147,30 @@ Why this works:
 ## 9. Space background and solar bloom
 
 Functions/terms:
-- `starfield(uv, bg)` for sparse stars + slow nebula variation
+- `deepSpaceBackground(rd)` as a layered procedural sky model
+- `starLayer(...)` for multi-scale stars with per-cell jitter, color temperature mix, and twinkle
+- `galaxyLayer(...)` for sparse spiral-like distant galaxies
 - Sun disk bloom from `pow(max(dot(rd, lightDir), 0), n)`
 
 Purpose:
 - Contextualizes lighting direction and makes the frame feel astronomical.
+
+Generation pipeline in `deepSpaceBackground`:
+1. Convert the view direction to a sky plane coordinate: `uv = rd.xy / max(abs(rd.z), 0.22)`.
+2. Build nebula dust density from multiple FBM fields and threshold/power-shape it.
+3. Add a rotated Milky-Way-like band:
+   - `band = exp(-abs(milkyUv.y) * k)` for broad galactic concentration.
+   - FBM clumps and dark-lane masking to break uniformity.
+4. Add stars in several frequency bands with different densities:
+   - fine stars (dense, tiny),
+   - mid stars,
+   - large sparse stars.
+5. Add very sparse galaxy sprites from random cells with radial body + spiral-arm modulation.
+6. Increase star intensity inside the galactic band for realism (`stars * (1 + band * ...)`).
+
+Why this looks more real than a single noise pass:
+- Real deep space is hierarchical: dust clouds, galactic structure, mixed stellar magnitude classes, and rare resolved galaxies.
+- Layering independent procedural fields at different spatial scales reproduces that hierarchy.
 
 ## 10. Color pipeline
 
@@ -171,10 +193,14 @@ Finalization:
 ## 12. Practical tuning knobs (in current shader)
 
 - Planet spin speed: `spin = u_time * 0.13`
-- Cloud wind speed: `u_time * 0.028`
-- Sea level: `seaLevel = 0.04`
+- Cloud drift cell rate: `cell = t * 0.055` in `randomCloudDrift`
+- Cloud drift magnitude: `wander * t * 0.030`
+- Sea level: `seaLevel = 0.16`
 - Atmosphere radius: `atmosphereRadius = 1.07`
+- Cloud shell radius: `cloudRadius = 1.018`
 - Normal bump strength: `bumpStrength = 0.16`
 - Scattering density falloff: `exp(-h * 12.0)`
+- Star density controls: `density` in `starLayer(...)`
+- Galaxy sparsity controls: `density` in `galaxyLayer(...)`
 
 These are good parameters to discuss in your article because each one maps to a visible, intuitive effect.
